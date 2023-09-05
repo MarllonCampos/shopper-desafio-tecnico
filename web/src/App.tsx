@@ -1,5 +1,11 @@
+import { Upload } from './components/Upload';
+
 function App() {
-  return <h1> Hello World</h1>;
+  return (
+    <div className="app-container">
+      <Upload />
+    </div>
+  );
 }
 
 export default App;
