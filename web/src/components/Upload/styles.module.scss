@@ -12,7 +12,7 @@
 }
 
 .subtitle {
-  margin-top: 6px;
+  margin-top: 12px;
 }
 
 .label {
@@ -36,7 +36,7 @@
   background-color: $accent-color;
   border: 0;
   flex-grow: 0;
-  margin-top: 24px;
+  margin-top: 14px;
   font-size: 16px;
   cursor: pointer;
   color: $text-color;
@@ -48,5 +48,37 @@
   &:disabled {
     background-color: $danger-color;
     filter: brightness(0.6);
+  }
+}
+
+table,
+th,
+td {
+  border: 1px solid $text-color;
+  color: $dark-color;
+  border-radius: 8px;
+  font-family: 'Poppins';
+}
+.table {
+  margin-top: 48px;
+  width: 100%;
+  background-color: #fafafa;
+  border-radius: 8px;
+  padding: 6px;
+  border-collapse: collapse;
+  border-style: hidden;
+  box-shadow: 0 0 0 2px $accent-color;
+  min-width: 300px;
+  max-width: 480px;
+  th {
+    padding: 4px 0;
+    border-width: 2px;
+    border-color: $accent-color;
+    text-transform: uppercase;
+  }
+
+  td {
+    text-align: center;
+    border-collapse: collapse;
   }
 }

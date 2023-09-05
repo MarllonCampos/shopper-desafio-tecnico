@@ -1,30 +1,27 @@
 import { useState } from 'react';
 import styles from './styles.module.scss';
 import { HiOutlineCloudDownload } from 'react-icons/hi';
-import Swal from 'sweetalert2';
 import Papa from 'papaparse';
+import { validateFile } from '../../services/api';
+import { Modals } from '../../modals';
 
-type fileState = {
+export type fileState = {
   name: string;
   content: csvValues;
 };
 
-type csvValues = Array<{ product_code: string; new_price: string }>;
+type csvValues = Array<Array<string>>;
 
 export function Upload() {
   const [file, setFile] = useState<fileState>({
     name: '',
     content: [],
   });
+  const [isFileValidated, setIsFileValidate] = useState<boolean>(false);
   function onUploadFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const uploadedFiles = event.currentTarget.files;
-
-    if (!uploadedFiles) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Erro!',
-        text: 'O arquivo não foi importado corretamente!',
-      });
+    setIsFileValidate(false);
+    if (!uploadedFiles || uploadedFiles.length == 0) {
       return;
     }
 
@@ -38,75 +35,74 @@ export function Upload() {
         skipEmptyLines: true,
       });
     } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Erro!',
-        text: 'Houve um erro tentando converter seu arquivo, verifique-o novamente',
-      });
+      console.log(error);
+      Modals.ErrorWhileParsing();
     }
   }
 
   async function handleFormSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!file.content || file.content.length == 0 || file.name == '') {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Aviso',
-        text: 'O arquivo é obrigatório',
-      });
+      Modals.WarningFileIsRequired();
     }
-    Swal.fire({
-      title: 'Aguarde',
-      text: 'Estamos validando seu arquivo',
-      showConfirmButton: false,
-      allowEscapeKey: false,
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
-    });
+    Modals.WaitingValidation();
     try {
-      const result = await fetch('http://localhost:3333/', {
-        headers: {
-          'content-type': 'application/json',
-        },
-        method: 'POST',
-        body: JSON.stringify(file),
-      });
+      const result = await validateFile(file);
       const data = await result.json();
-      if (result.status > 299) throw new Error(data.message);
-      Swal.close();
+      if (result.status > 399) throw new Error(data.message);
 
       console.log(data);
 
-      Swal.fire({
-        icon: 'success',
-        title: 'Arquivo conferido com sucesso',
-        timer: 3000,
-        timerProgressBar: true,
-      });
+      Modals.FileValidationSuccess();
+      setIsFileValidate(true);
     } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        text: String(error),
-        timer: 3000,
-      });
+      Modals.ErrorWhileValidating(error);
     }
+  }
+  function valuesFromContent() {
+    const [, ...values] = file.content;
+    return values;
+  }
+
+  function formattedPrice(value: string) {
+    const valueAsNumber = Number(value);
+    return new Intl.NumberFormat('pt-us', {
+      currency: 'brl',
+      style: 'currency',
+    }).format(valueAsNumber);
   }
 
   return (
     <form className={styles.form} onSubmit={handleFormSubmit}>
       <h3 className={styles.title}>Faça o upload do seu arquivo para ser válidado</h3>
 
-      <input type="file" id="file" hidden multiple={false} required onChange={onUploadFileChange} accept=".csv" />
+      <input type="file" id="file" hidden multiple={false} onChange={onUploadFileChange} accept=".csv" />
       <label htmlFor="file" className={styles.label}>
         <HiOutlineCloudDownload /> Enviar arquivo
       </label>
-      {file && <h5 className={styles.subtitle}>{file.name}</h5>}
-      <p>{JSON.stringify(file.content)}</p>
       <button type="submit" className={styles.button} disabled={file.name === ''}>
         Validar
       </button>
+
+      {file.content.length > 0 && <h5 className={styles.subtitle}>{file.name}</h5>}
+      {isFileValidated && file.content.length > 0 && (
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Product_Code</th>
+              <th>New_Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {valuesFromContent().map(([product_code, new_price], index) => (
+              <tr key={`${product_code}-${index}`}>
+                <td>{product_code}</td>
+                <td>{formattedPrice(new_price)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </form>
   );
 }
