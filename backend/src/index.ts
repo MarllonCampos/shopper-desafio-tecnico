@@ -1,4 +1,4 @@
-import express, { response } from 'express';
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import 'reflect-metadata';
@@ -6,7 +6,7 @@ import { In } from 'typeorm';
 
 dotenv.config();
 import { Router, Request, Response } from 'express';
-import { ProductModel, Validation } from './services/validation';
+import { Validation } from './services/validation';
 import { ValidationError } from './errors/ValidationErrors';
 import { Products } from '../db/entities/Product';
 import { AppDataSource } from '../db/data-source';
@@ -49,12 +49,31 @@ AppDataSource.initialize()
       const { content } = req.body;
       const [_, ...items] = content;
       const codeProducts = items.map(([first, _second]: [string, string]) => Number(first));
-      let products: ProductModel[] = [];
       try {
         // Começar transaction
-        await AppDataSource.manager.transaction(async (transactionalEntityManager) => {
-          // Consulta no BD
-          products = (await transactionalEntityManager.find(Products, {
+        // Consulta no BD
+        const products = (await AppDataSource.getRepository(Products).find({
+          select: {
+            code: true,
+            cost_price: true,
+            sales_price: true,
+          },
+          where: {
+            code: In(codeProducts),
+          },
+        })) as Products[];
+
+        // Validação Todos os Códigos de produtos existem
+        Validation.allCodeProductsExists({ codeProducts, products });
+
+        //Validação preço menor que custo
+        Validation.priceCantBeLessThanCost({ newPrices: items, products });
+
+        // Validação há algum preço maior que 10%
+        Validation.isPriceGreaterThan10Percent({ newPrices: items, products });
+        let responsex: any = [];
+        AppDataSource.transaction(async (entityManager) => {
+          const allProducts = await entityManager.getRepository(Products).find({
             select: {
               code: true,
               cost_price: true,
@@ -63,19 +82,23 @@ AppDataSource.initialize()
             where: {
               code: In(codeProducts),
             },
-          })) as ProductModel[];
+          });
 
-          // Validação Todos os Códigos de produtos existem
-          Validation.allCodeProductsExists({ codeProducts, products });
+          for (const product of allProducts) {
+            const newItem = items.find(([code, _]: [string, string]) => product.code == Number(code));
 
-          //Validação preço menor que custo
-          Validation.priceCantBeLessThanCost({ newPrices: items, products });
-
-          // Validação há algum preço maior que 10%
-          Validation.isPriceGreaterThan10Percent({ newPrices: items, products });
-          await transactionalEntityManager.save(Products);
-        });
-        return res.status(200).json({ products });
+            const formattedNewValue = Number(newItem[1]);
+            product.sales_price = formattedNewValue;
+          }
+          responsex = allProducts;
+          return await entityManager.save(allProducts);
+        })
+          .then((products) => {
+            return res.status(200).json(products);
+          })
+          .catch((error) => {
+            throw new Error(error);
+          });
       } catch (error) {
         if (error instanceof ValidationError) {
           const data = error.data;
@@ -88,6 +111,7 @@ AppDataSource.initialize()
 
           return res.status(status).json(responseObject);
         }
+        console.log(error);
         res.status(500).json({ message: 'Erro do servidor, contate o departamento <T.I>' });
       }
     });
