@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryColumn } from 'typeorm';
+import { Entity, Column, PrimaryColumn, ManyToMany, JoinTable } from 'typeorm';
+import { Packs } from './Pack';
 
 @Entity('products')
 export class Products {
@@ -13,4 +14,8 @@ export class Products {
 
   @Column('decimal')
   sales_price: number;
+
+  @ManyToMany(() => Packs, (pack) => pack.products)
+  @JoinTable()
+  packs: Packs[];
 }

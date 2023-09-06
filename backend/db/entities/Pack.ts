@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
 
 import { Products } from './Product';
 
@@ -10,12 +10,12 @@ export class Packs {
   @Column()
   pack_id: number;
 
-  @OneToMany(() => Products, (product) => product.code)
+  @Column()
   product_id: number;
-
   @Column()
   qty: number;
 
-  @Column()
-  sales_price: number;
+  @ManyToMany(() => Products, (products) => products.packs)
+  @JoinTable()
+  products: Products[];
 }
