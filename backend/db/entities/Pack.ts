@@ -1,21 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToMany } from 'typeorm';
 
 import { Products } from './Product';
 
 @Entity('packs')
 export class Packs {
-  @PrimaryGeneratedColumn('increment')
+  @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ name: 'pack_id' })
   pack_id: number;
 
-  @Column()
+  @Column({ name: 'product_id' })
   product_id: number;
+
   @Column()
   qty: number;
 
   @ManyToMany(() => Products, (products) => products.packs)
-  @JoinTable()
   products: Products[];
 }
