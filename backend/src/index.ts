@@ -35,7 +35,6 @@ AppDataSource.initialize()
       const [fields, ...items] = content;
 
       const ProductErrors = new Validation();
-      const valueProducts = items.map(([_, valueProduct]: [string, string]) => Number(valueProduct));
 
       try {
         // Há os campos previamente definidos
@@ -43,7 +42,11 @@ AppDataSource.initialize()
         // Os campos de valor são valores númericos
         ProductErrors.allValuesAreValidNumbers(items);
 
-        if (ProductErrors.errors.length > 0) throw new ValidationError('ERROR', ProductErrors.errors);
+        if (ProductErrors.errors.length > 0)
+          throw new ValidationError(
+            'Há algo de errado com as informações do arquivo, por favor veja os erros',
+            ProductErrors.errors
+          );
         res.status(200).json({ message: 'Planilha Validada!' });
       } catch (error) {
         if (error instanceof ValidationError) {
@@ -59,7 +62,10 @@ AppDataSource.initialize()
 
           // Adicionar objeto data se exister data
           Object.keys(data).length > 0 && Object.assign(responseObject, { data });
+          return res.status(error.status).json(responseObject);
         }
+        console.log(error);
+
         res.status(500).json({ message: 'Erro do servidor, contate o departamento <T.I>' });
       }
     });
@@ -218,6 +224,8 @@ AppDataSource.initialize()
 
           return res.status(error.status).json(responseObject);
         }
+        console.log(error);
+
         res.status(500).json({ message: 'Erro do servidor, contate o departamento <T.I>' });
       }
     });
