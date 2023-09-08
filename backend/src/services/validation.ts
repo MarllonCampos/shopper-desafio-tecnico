@@ -18,7 +18,7 @@ type ValueValidationParams = {
 
 type PackProductsPrice = Pick<Products, 'sales_price'> & Pick<Packs, 'pack_id' | 'qty' | 'product_id'>;
 
-type packPriceMustChangeParams = {
+type newPackPriceIsWrongParams = {
   packs: Array<Packs>;
   newPackProductsPrice: PackProductsPrice[];
   items: Array<Array<number>>;
@@ -30,6 +30,11 @@ type allCodeProductsExistsParams = Pick<ValueValidationParams, 'products'> & {
 
 type productPackCodesPresentOnFileParams = Pick<allCodeProductsExistsParams, 'codeProducts'> & {
   packProductsId: Array<number>;
+};
+
+type packPriceWillChangeParams = {
+  packsWithProducts: Array<Packs & Pick<Products, 'sales_price'>>;
+  items: Array<Array<number>>;
 };
 
 export class Validation {
@@ -59,26 +64,26 @@ export class Validation {
     const containsNewPrice = fieldSet.has(AcceptedFields.new_price);
     if (!containsProductCode && !containsNewPrice) {
       this.errors.push({
-        name: '<Geral> Planilha não contém coluna do código de produto nem de novo preço',
-        data: 0,
+        warning: '<Geral> Planilha não contém coluna do código de produto nem de novo preço',
+        data: {},
       });
       return;
     }
     if (!containsProductCode) {
-      this.errors.push({ name: '<Geral> Planilha não contém coluna do código de produto', data: 0 });
+      this.errors.push({ warning: '<Geral> Planilha não contém coluna do código de produto', data: {} });
       return;
     }
 
     if (!containsNewPrice) {
-      this.errors.push({ name: '<Geral> Planilha não contém coluna do novo preço', data: 0 });
+      this.errors.push({ warning: '<Geral> Planilha não contém coluna do novo preço', data: {} });
       return;
     }
   }
 
-  allValuesAreValidNumbers(values: Array<number>) {
-    values.forEach((number, index) => {
-      if (Number.isNaN(number)) {
-        this.errors.push({ name: '<Geral> Valor deste produto não é númerico', data: index + 1 });
+  allValuesAreValidNumbers(values: Array<Array<any>>) {
+    values.forEach(([code, value]) => {
+      if (Number.isNaN(value)) {
+        this.errors.push({ warning: '<Geral> Valor deste produto não é númerico', data: code });
       }
     });
   }
@@ -100,7 +105,7 @@ export class Validation {
     });
     if (unallowedItems.length == 0) return;
     this.errors.push({
-      name: '<Marketing> Os seguinte items não podem ter o preço alterado (>10%)',
+      reason: '<Marketing> Os seguinte items não podem ter o preço alterado (>10%)',
       data: unallowedItems,
     });
   }
@@ -119,17 +124,18 @@ export class Validation {
 
     if (unallowedItems.length == 0) return;
     this.errors.push({
-      name: '<Financeiro> Os seguinte items não podem ter o preço alterado (< custo)',
+      reason: '<Financeiro> Os seguinte items não podem ter o preço alterado (< custo)',
       data: unallowedItems,
     });
   }
 
   allCodeProductsExists({ codeProducts, products }: allCodeProductsExistsParams) {
     const onlyDbCodeProducts = products.map((product) => product.code);
+
     const differencesArray = Validation.existsDiferences(codeProducts, onlyDbCodeProducts);
     if (differencesArray.length == 0) return;
     this.errors.push({
-      name: '<Requisitos> Os seguintes items não estão cadastrados',
+      reason: '<Requisitos> Os seguintes items não estão cadastrados',
       data: differencesArray,
     });
   }
@@ -138,12 +144,12 @@ export class Validation {
     const productsIdsMissing = packProductsId.filter((packProductId) => !codeProducts.includes(packProductId));
     if (productsIdsMissing.length == 0) return;
     this.errors.push({
-      name: '<Requisitos> O arquivo também deve conter alteração de preço dos seguintes produtos',
+      reason: '<Requisitos> O arquivo também deve conter alteração de preço dos seguintes produtos',
       data: productsIdsMissing,
     });
   }
 
-  packPriceMustChange({ packs, newPackProductsPrice, items }: packPriceMustChangeParams) {
+  newPackPriceIsWrong({ packs, newPackProductsPrice, items }: newPackPriceIsWrongParams) {
     type correctPackType = Array<
       Pick<Packs, 'pack_id'> & {
         newPackPrice: number;
@@ -159,20 +165,25 @@ export class Validation {
     }, [] as correctPackType);
 
     newPackProductsPrice.forEach((packProduct) => {
+      // console.log(packProduct.product_id, { correctPacks });
+
       const correctPack = packs.find((pack) => pack.product_id == packProduct.product_id) as Packs;
 
-      let [, newPackPrice] = items.find(([code, _]) => code == correctPack.pack_id) as [any, number];
+      // Procura dentro dos itens enviado o novo preço do pack
+      let [, newPackPrice] = items.find(([code, _]) => code == correctPack.pack_id) || [null, null];
 
-      const [, newPriceItem] = items.find(([code]) => code == correctPack.product_id) as [any, number];
+      // Caso não exista novo preço do pack retorne
+      if (!newPackPrice) return;
+
+      let [, newPriceItem] = items.find(([code]) => code == correctPack.product_id) || [null, null];
 
       const formattedNewPriceItem = Number(newPriceItem) * 1000;
 
       const priceItemTimesQuantity = (formattedNewPriceItem * correctPack.qty) / 1000;
 
       const index = correctPacks.findIndex((correct) => correct.pack_id == correctPack.pack_id);
-      console.log(index);
 
-      correctPacks[index].newPackPrice = Number(newPackPrice);
+      correctPacks[index].newPackPrice = newPackPrice == 0 ? priceItemTimesQuantity : Number(newPackPrice);
       correctPacks[index].priceItemsTotal = Number(
         (correctPacks[index].priceItemsTotal + priceItemTimesQuantity).toPrecision(4)
       );
@@ -184,10 +195,62 @@ export class Validation {
 
     if (wrongValuePack.length == 0) return;
     this.errors.push({
-      name: `<Requisitos> O(s) produto(s) ${wrongValuePack.join(
+      reason: `<Requisitos> O(s) produto(s) ${wrongValuePack.join(
         ','
       )} estão com seus valores incorretos, verifique e tente novamente`,
       data: wrongValuePack,
     });
+  }
+
+  // ToDo -> Remover daqui e criar um service para o products
+  newItemsWithTheNewPackSalesPrice({
+    packsWithProducts,
+    items,
+  }: packPriceWillChangeParams): Array<Array<number | string>> {
+    const packWithProductsSet = new Set();
+    console.log(items);
+
+    interface packWithProductContentProductType extends Products {
+      newPriceItem: number;
+      qty: number;
+    }
+    type packWithProductContentType = Array<{
+      pack_id: number;
+      sales_price: number;
+      products: Array<packWithProductContentProductType>;
+    }>;
+
+    const packWithProductContent: packWithProductContentType = [];
+
+    for (const pack of packsWithProducts) {
+      const correctArrayItem = items.find(([code]) => code == pack.product_id);
+      const newPriceItem = correctArrayItem ? correctArrayItem[1] : Number(pack.product.sales_price);
+      if (!packWithProductsSet.has(pack.pack_id)) {
+        packWithProductsSet.add(pack.pack_id);
+        packWithProductContent.push({
+          pack_id: pack.pack_id,
+          sales_price: pack.sales_price,
+          products: [{ ...pack.product, newPriceItem, qty: pack.qty }],
+        });
+      } else {
+        const indexOfProductContent = packWithProductContent.findIndex((item) => item.pack_id == pack.pack_id);
+        packWithProductContent[indexOfProductContent].products.push({ ...pack.product, newPriceItem, qty: pack.qty });
+      }
+    }
+
+    const formattedPackWithProductContent = packWithProductContent.map((productContent) => {
+      const newSalesPrice = productContent.products
+        .map((product) => product.newPriceItem * product.qty)
+        .reduce((acc, actual) => Number((acc + actual).toPrecision(4)), 0);
+      return {
+        ...productContent,
+        sales_price: newSalesPrice,
+      };
+    });
+    formattedPackWithProductContent.forEach((productContent) =>
+      items.push([Number(productContent.pack_id), productContent.sales_price])
+    );
+
+    return items;
   }
 }
