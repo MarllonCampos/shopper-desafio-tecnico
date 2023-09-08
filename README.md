@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="https://github.com/MarllonCampos/shopper-desafio-tecnico/blob/master/assets/shopper.png?raw=true" alt="Logo" width="150" height="160" />
+</p>
+<hr >
+<h1 align="center"> Shopper </h1>
+
 # Guia de Instalação e Execução
 
 Este guia contém instruções sobre como instalar e executar o código Node.js em sua máquina local.
