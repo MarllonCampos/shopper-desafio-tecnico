@@ -30,15 +30,28 @@
   }
 }
 
-.button {
+button {
   border-radius: 8px;
   padding: 4px 24px;
-  background-color: $accent-color;
   border: 0;
   flex-grow: 0;
-  margin-top: 14px;
   font-size: 16px;
   cursor: pointer;
+  color: $text-color;
+  transition: all 0.2s linear;
+  margin-top: 14px;
+
+  &:disabled {
+    background-color: $danger-color;
+    filter: brightness(0.6);
+  }
+  &:hover {
+    filter: brightness(1.2);
+  }
+}
+
+.button {
+  background-color: $accent-color;
   color: $text-color;
 
   &:hover {
@@ -51,6 +64,17 @@
   }
 }
 
+.updateButton {
+  background-color: $warning-color;
+  color: $dark-color;
+}
+
+.errorButton {
+  background-color: $danger-color;
+  color: $title-color;
+  margin-top: 0;
+}
+
 table,
 th,
 td {
@@ -59,8 +83,13 @@ td {
   border-radius: 8px;
   font-family: 'Poppins';
 }
+
+td {
+  padding: 6px 0;
+}
 .table {
   margin-top: 48px;
+  margin-inline: auto;
   width: 100%;
   background-color: #fafafa;
   border-radius: 8px;
