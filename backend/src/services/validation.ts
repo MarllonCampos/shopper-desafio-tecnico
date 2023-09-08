@@ -64,26 +64,26 @@ export class Validation {
     const containsNewPrice = fieldSet.has(AcceptedFields.new_price);
     if (!containsProductCode && !containsNewPrice) {
       this.errors.push({
-        warning: '<Geral> Planilha não contém coluna do código de produto nem de novo preço',
+        reason: '<Geral> Planilha não contém coluna do código de produto nem de novo preço',
         data: {},
       });
       return;
     }
     if (!containsProductCode) {
-      this.errors.push({ warning: '<Geral> Planilha não contém coluna do código de produto', data: {} });
+      this.errors.push({ reason: '<Geral> Planilha não contém coluna do código de produto', data: {} });
       return;
     }
 
     if (!containsNewPrice) {
-      this.errors.push({ warning: '<Geral> Planilha não contém coluna do novo preço', data: {} });
+      this.errors.push({ reason: '<Geral> Planilha não contém coluna do novo preço', data: {} });
       return;
     }
   }
 
   allValuesAreValidNumbers(values: Array<Array<any>>) {
     values.forEach(([code, value]) => {
-      if (Number.isNaN(value)) {
-        this.errors.push({ warning: '<Geral> Valor deste produto não é númerico', data: code });
+      if (Number.isNaN(Number(value))) {
+        this.errors.push({ reason: '<Geral> Valor deste produto não é númerico', data: code });
       }
     });
   }
@@ -97,15 +97,16 @@ export class Validation {
 
       const dbProductMinus10Percent = dbProductSalesValue * 0.9;
 
-      const formattedNewPrice = Number(newPrice);
+      const formattedNewPrice = Number(String(newPrice).replace(',', '.'));
 
       if (formattedNewPrice > dbProductPlus10Percent || formattedNewPrice < dbProductMinus10Percent) {
         unallowedItems.push(productCode);
       }
     });
+
     if (unallowedItems.length == 0) return;
     this.errors.push({
-      reason: '<Marketing> Os seguinte items não podem ter o preço alterado (>10%)',
+      reason: '<Marketing> Este item não pode ter o preço alterado ele é menor ou maior que 10%',
       data: unallowedItems,
     });
   }
@@ -124,7 +125,7 @@ export class Validation {
 
     if (unallowedItems.length == 0) return;
     this.errors.push({
-      reason: '<Financeiro> Os seguinte items não podem ter o preço alterado (< custo)',
+      reason: '<Financeiro> Este item não pode ter o preço alterado ( preço < custo)',
       data: unallowedItems,
     });
   }
@@ -135,7 +136,7 @@ export class Validation {
     const differencesArray = Validation.existsDiferences(codeProducts, onlyDbCodeProducts);
     if (differencesArray.length == 0) return;
     this.errors.push({
-      reason: '<Requisitos> Os seguintes items não estão cadastrados',
+      reason: '<Requisitos> O item não esta cadastrado',
       data: differencesArray,
     });
   }
@@ -143,8 +144,10 @@ export class Validation {
   productPackCodesPresentOnFile({ codeProducts, packProductsId }: productPackCodesPresentOnFileParams) {
     const productsIdsMissing = packProductsId.filter((packProductId) => !codeProducts.includes(packProductId));
     if (productsIdsMissing.length == 0) return;
+    const reason = [...productsIdsMissing];
+    productsIdsMissing.push(...codeProducts.filter((codeProduct) => !packProductsId.includes(codeProduct)));
     this.errors.push({
-      reason: '<Requisitos> O arquivo também deve conter alteração de preço dos seguintes produtos',
+      reason: `<Requisitos> O arquivo também deve conter alteração de preço destes produto ${reason.join(',')} `,
       data: productsIdsMissing,
     });
   }
@@ -165,8 +168,6 @@ export class Validation {
     }, [] as correctPackType);
 
     newPackProductsPrice.forEach((packProduct) => {
-      // console.log(packProduct.product_id, { correctPacks });
-
       const correctPack = packs.find((pack) => pack.product_id == packProduct.product_id) as Packs;
 
       // Procura dentro dos itens enviado o novo preço do pack
@@ -208,7 +209,6 @@ export class Validation {
     items,
   }: packPriceWillChangeParams): Array<Array<number | string>> {
     const packWithProductsSet = new Set();
-    console.log(items);
 
     interface packWithProductContentProductType extends Products {
       newPriceItem: number;
