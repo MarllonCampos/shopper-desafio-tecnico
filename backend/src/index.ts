@@ -33,15 +33,20 @@ AppDataSource.initialize()
     route.post('/validate', async (req: Request, res: Response) => {
       const { content, name } = req.body;
       const [fields, ...items] = content;
+
+      const ProductErrors = new Validation();
       const valueProducts = items.map(([_, valueProduct]: [string, string]) => Number(valueProduct));
 
       try {
         // Há os campos previamente definidos
-        Validation.allFieldsExists(fields);
+        ProductErrors.allFieldsExists(fields);
         // Os campos de valor são valores númericos
-        Validation.allValuesAreValidNumbers(valueProducts);
+        ProductErrors.allValuesAreValidNumbers(valueProducts);
+
+        if (ProductErrors.errors.length > 0) throw new ValidationError('ERROR', ProductErrors.errors);
         res.status(200).json({ message: 'Planilha Validada!' });
       } catch (error) {
+        console.log(error instanceof ValidationError);
         if (error instanceof ValidationError) {
           const data = error.data;
           const message = error.message;
@@ -56,12 +61,16 @@ AppDataSource.initialize()
           // Adicionar objeto data se exister data
           Object.keys(data).length > 0 && Object.assign(responseObject, { data });
         }
+        console.log(error);
+
         res.status(500).json({ message: 'Erro do servidor, contate o departamento <T.I>' });
       }
     });
 
     route.post('/action', async (req: Request, res: Response) => {
       const { content } = req.body;
+      const ProductErrors = new Validation();
+
       try {
         const [_, ...items] = content;
         const codeProducts = items.map(([codeProduct, _]: [string, string]) => Number(codeProduct));
@@ -79,25 +88,30 @@ AppDataSource.initialize()
         })) as Products[];
 
         // Validação Todos os Códigos de produtos existem
-        Validation.allCodeProductsExists({ codeProducts, products });
+        ProductErrors.allCodeProductsExists({ codeProducts, products });
 
         // Validação preço menor que custo
-        Validation.priceCantBeLessThanCost({ newPrices: items, products });
+        ProductErrors.priceCantBeLessThanCost({ newPrices: items, products });
 
         // Validação há algum preço maior que 10%
-        Validation.isPriceGreaterThan10Percent({ newPrices: items, products });
+        ProductErrors.isPriceGreaterThan10Percent({ newPrices: items, products });
 
         // Produtos enviados que também são packs
         const packs = await AppDataSource.getRepository(Packs).find({
+          where: { pack_id: In(codeProducts) },
+        });
+
+        const x = await AppDataSource.getRepository(Products).find({
           where: {
-            pack_id: In(codeProducts),
+            code: In(codeProducts),
+            packs: true,
           },
         });
 
         const packProductsId = packs.map((pack) => pack.product_id);
 
         // Validação código dos produtos de pack estão no arquivo
-        Validation.productPackCodesPresentOnFile({ codeProducts, packProductsId });
+        ProductErrors.productPackCodesPresentOnFile({ codeProducts, packProductsId });
 
         const newPackProductsPrice = packs.map((pack) => {
           const product = products.find((product) => product.code == pack.product_id) as Products;
@@ -110,14 +124,15 @@ AppDataSource.initialize()
           };
         });
 
-        Validation.packPriceMustChange({ packs, newPackProductsPrice, items });
+        if (packs.length > 0) ProductErrors.packPriceMustChange({ packs, newPackProductsPrice, items });
+
+        if (ProductErrors.errors.length > 0) throw new ValidationError('x', ProductErrors.errors);
 
         // Começar transaction
         const productsUpdated = await AppDataSource.transaction(async (entityManager) => {
           const allProducts = await entityManager.getRepository(Products).find({
             select: {
               code: true,
-              cost_price: true,
               sales_price: true,
               name: true,
             },
@@ -137,18 +152,17 @@ AppDataSource.initialize()
 
           return (await entityManager.save(allProducts)).map((product, index) => ({
             ...product,
-            cost_price: Number(product.cost_price),
             new_price: product.sales_price,
             sales_price: Number(old_prices_array[index]),
           }));
         });
-
         return res.status(200).json({ message: 'Todos os produtos foram atualizados', data: productsUpdated });
       } catch (error) {
         if (error instanceof ValidationError) {
           const data = error.data;
           const message = error.message;
-          const status = error.status > 0 ? error.status : 400;
+          console.log(error);
+
           const responseObject: {
             message: string;
             data?: {};
@@ -159,7 +173,7 @@ AppDataSource.initialize()
           // Adicionar objeto data se exister data
           Object.keys(data).length > 0 && Object.assign(responseObject, { data });
 
-          return res.status(status).json(responseObject);
+          return res.status(error.status).json(responseObject);
         }
         console.log(error);
         res.status(500).json({ message: 'Erro do servidor, contate o departamento <T.I>' });
