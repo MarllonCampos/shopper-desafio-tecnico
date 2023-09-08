@@ -26,12 +26,17 @@ export class Modals {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static ErrorWhileValidating(error: any) {
-    const errorString = String(error);
+    const errorString = String(error.message);
+    console.log(error);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const notices = error.data.map((errorInfo: any) => `${errorInfo.reason}`).join('\n');
+
     Swal.close();
     Swal.fire({
       icon: 'error',
-      text: errorString,
-      timer: 3000,
+      title: errorString,
+      text: notices,
     });
   }
 
@@ -48,6 +53,42 @@ export class Modals {
       icon: 'warning',
       title: 'Aviso',
       text: 'O arquivo é obrigatório',
+    });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static ErrorWhileUpdating(error: any) {
+    Swal.close();
+
+    Swal.fire({
+      icon: 'error',
+      title: error.message,
+    });
+  }
+
+  static ErrorOnProducts(reasons: string[]) {
+    const reasonsList = document.createElement('ul');
+
+    // Preencha a lista com os reasons
+    reasons.forEach((reasonItem) => {
+      const listItem = document.createElement('li');
+      listItem.textContent = `${reasonItem}`;
+      listItem.style.fontSize = '14px';
+      reasonsList.appendChild(listItem);
+    });
+    Swal.fire({
+      icon: 'error',
+      titleText: 'Error',
+      html: reasonsList,
+      text: reasons.join('\n'),
+    });
+  }
+
+  static FileUpdatingSuccess() {
+    Swal.close();
+    Swal.fire({
+      icon: 'success',
+      title: 'Produtos Atualizados com Sucesso',
     });
   }
 }
