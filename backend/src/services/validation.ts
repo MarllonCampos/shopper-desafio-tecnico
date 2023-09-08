@@ -39,10 +39,18 @@ export class Validation {
     const containsProductCode = fieldSet.has(AcceptedFields.product_code);
     const containsNewPrice = fieldSet.has(AcceptedFields.new_price);
     if (!containsProductCode && !containsNewPrice)
-      throw new ValidationError('Planilha não contém coluna do código de produto nem de novo preço ');
-    if (!containsProductCode) throw new ValidationError('<Validar> Planilha não contém coluna do código de produto');
+      throw new ValidationError('<Geral> Planilha não contém coluna do código de produto nem de novo preço ');
+    if (!containsProductCode) throw new ValidationError('<Geral> Planilha não contém coluna do código de produto');
 
-    if (!containsNewPrice) throw new ValidationError('<Validar> Planilha não contém coluna do novo preço');
+    if (!containsNewPrice) throw new ValidationError('<Geral> Planilha não contém coluna do novo preço');
+  }
+
+  static allValuesAreValidNumbers(values: Array<number>) {
+    values.forEach((number) => {
+      if (!Number.isNaN(number)) {
+        throw new ValidationError('<Geral> Valor deste produto não é númerico ');
+      }
+    });
   }
 
   static isPriceGreaterThan10Percent({ newPrices, products }: ValueValidationParams) {
