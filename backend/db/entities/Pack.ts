@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 
 import { Products } from './Product';
 
@@ -7,15 +7,16 @@ export class Packs {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'pack_id' })
+  @Column({ type: 'bigint' })
   pack_id: number;
 
-  @Column({ name: 'product_id' })
+  @ManyToOne(() => Products, (product) => product.packs)
+  @JoinColumn({ name: 'product_id', referencedColumnName: 'code' })
+  product: Products;
+
+  @Column({ type: 'bigint' })
   product_id: number;
 
-  @Column()
+  @Column({ type: 'bigint' })
   qty: number;
-
-  @ManyToMany(() => Products, (products) => products.packs)
-  products: Products[];
 }

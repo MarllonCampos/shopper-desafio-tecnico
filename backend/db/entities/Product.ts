@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryColumn, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, Column, PrimaryColumn, OneToMany, JoinColumn } from 'typeorm';
 import { Packs } from './Pack';
 
 @Entity('products')
@@ -6,26 +6,20 @@ export class Products {
   @PrimaryColumn()
   code: number;
 
-  @Column()
+  @Column({ type: 'varchar', length: 100 })
   name: string;
 
-  @Column({ type: 'double precision' })
+  @Column({ type: 'decimal', precision: 9, scale: 2 })
   cost_price: number;
 
-  @Column({ type: 'double precision' })
+  @Column({ type: 'decimal', precision: 9, scale: 2 })
   sales_price: number;
 
-  @ManyToMany(() => Packs, (pack) => pack.products)
-  @JoinTable({
-    name: 'packs', // Nome da tabela "Packs"
-    joinColumn: {
-      name: 'pack_id', // Coluna na tabela "Packs" que se refere a "Products"
-      referencedColumnName: 'code', // Coluna na tabela "Products" a ser relacionada
-    },
-    inverseJoinColumn: {
-      name: 'product_id', // Coluna na tabela "Packs" que se refere a outros "Packs"
-      referencedColumnName: 'product_id', // Coluna na tabela "Products" a ser relacionada
-    },
-  })
-  packs: Packs[];
+  // Defina a relação de um produto para muitos pacotes
+  @OneToMany(() => Packs, (pack) => pack.product)
+  @JoinColumn([
+    { name: 'code', referencedColumnName: 'pack_id' },
+    { name: 'code', referencedColumnName: 'product_id' },
+  ])
+  packs: Packs;
 }
